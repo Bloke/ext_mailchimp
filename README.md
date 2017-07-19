@@ -1,2 +1,2 @@
-# zcr_mailchimp
-Textpattern Mailchimp interaction module for zem_contact_reborn
+# ext_mailchimp
+Textpattern MailChimp interaction module for the com_connect email platform.

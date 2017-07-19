@@ -10,7 +10,7 @@
 // file name. Plugin names should start with a three letter prefix which is
 // unique and reserved for each plugin author ("abc" is just an example).
 // Uncomment and edit this line to override:
-$plugin['name'] = 'zcr_mailchimp';
+$plugin['name'] = 'ext_mailchimp';
 
 // Allow raw HTML help, as opposed to Textile.
 // 0 = Plugin help is in Textile format, no raw HTML allowed (default).
@@ -20,7 +20,7 @@ $plugin['name'] = 'zcr_mailchimp';
 $plugin['version'] = '0.10';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'http://stefdawson.com';
-$plugin['description'] = 'Textpattern CMS Mailchimp module for zem_contact_reborn';
+$plugin['description'] = 'Textpattern CMS Mailchimp module for the com_connect email plugin';
 
 // Plugin load order:
 // The default value of 5 would fit most plugins, while for instance comment
@@ -72,21 +72,25 @@ if (!defined('txpinterface'))
 
 # --- BEGIN PLUGIN CODE ---
 if (txpinterface === 'public') {
-    register_callback('zcr_mailchimp', 'zemcontact.deliver');
+    register_callback('ext_mailchimp', 'comconnect.deliver');
 }
 
 /**
- * Callback hook for zem_contact_reborn to handle delivery.
+ * Callback hook for com_connect to handle delivery.
+ * 
+ * @param  string $evt     Textpattern event
+ * @param  string $stp     Textpattern step (action)
+ * @param  array  $payload Delivery content, passed in from com_connect
  */
-function zcr_mailchimp($evt, $stp, &$payload)
+function ext_mailchimp($evt, $stp, &$payload)
 {
     // If using copysender, it's the 2nd time the plugin has been called so no need
-    // to do anything. ZCR will continue as normal and mail out the email.
+    // to do anything. com_connect will continue as normal and mail out the email.
     if ($stp === 'copysender') {
         return '';
     }
 
-    $zcrConfig = array('return_action' => 'skip');
+    $ccConfig = array('return_action' => 'skip');
     $chimpConfig = array('email' => array('email' => null), 'id' => null);
     $chimpVars = array();
     $apiKey = null;
@@ -119,9 +123,9 @@ function zcr_mailchimp($evt, $stp, &$payload)
                     $chimpConfig[$param] = $value;
                     break;
             }
-        } elseif (strpos($key, 'zcr_') === 0) {
-            $param = substr($key, 4); // Strip off zcr_ prefix
-            $zcrConfig[$param] = $value;
+        } elseif (strpos($key, 'ext_') === 0) {
+            $param = substr($key, 4); // Strip off ext_ prefix
+            $ccConfig[$param] = $value;
         } elseif ($key === 'list_id') {
             $chimpConfig['id'] = $value;
         } elseif ($key === 'email') {
@@ -135,13 +139,13 @@ function zcr_mailchimp($evt, $stp, &$payload)
     if ($apiKey) {
         $chimpConfig['merge_vars'] = $chimpVars;
 
-        $mc = new zcr_Mailchimp($apiKey);
+        $mc = new ext_Mailchimp($apiKey);
         $result = $mc->call($action, $chimpConfig);
 
         // Todo: what to do with the result?
 
-        if ($zcrConfig['return_action']) {
-            return 'zemcontact.' . $zcrConfig['return_action'];
+        if ($ccConfig['return_action']) {
+            return 'comconnect.' . $ccConfig['return_action'];
         }
     } else {
         // Not for us.
@@ -162,7 +166,7 @@ function zcr_mailchimp($evt, $stp, &$payload)
  * @author Drew McLellan <drew.mclellan@gmail.com> 
  * @version 1.1.1
  */
-class zcr_MailChimp
+class ext_MailChimp
 {
     private $api_key;
     private $api_endpoint = 'https://<dc>.api.mailchimp.com/2.0';
@@ -238,35 +242,35 @@ if (0) {
 ?>
 <!--
 # --- BEGIN PLUGIN HELP ---
-h1. zcr_mailchimp
+h1. ext_mailchimp
 
-A Textpattern CMS plugin module for the zem_contact_reborn mailer, permitting people to subscribe to mailing lists you have set up in MailChimp.
+A Textpattern CMS plugin module for the com_connect mailer, permitting people to subscribe to mailing lists you have set up in MailChimp.
 
 h2. Installation
 
-IMPORTANT: requires zem_contact_reborn v4.5.0.0+ to be installed and active.
+IMPORTANT: requires com_connect v4.5.0.0+ to be installed and active.
 
 Download the plugin, visit your _Admin->Plugins_ panel, paste the code in the box, upload, install, activate. Done.
 
 h2. Usage
 
-The plugin silently sits waiting for zem_contact_reborn submissions. If any submission has the correct combination of mailchimp fields, the plugin wakes up, performs the designated action (which by default is subscribe to list) and then tells ZCR it's done. In its default configuration, the send-an-email portion of the process is bypassed. This can be overridden using @zcr_return_action@: see below.
+The plugin silently sits waiting for com_connect submissions. If any submission has the correct combination of mailchimp fields, the plugin wakes up, performs the designated action (which by default is subscribe to list) and then tells com_connect it's done. In its default configuration, the send-an-email portion of the process is bypassed. This can be overridden using @ext_return_action@: see below.
 
-The way you set up the plugin is by writing a standard @<txp:zem_contact>@ form, but with specific elements to configure and control the process. Use @<txp:zem_contact_secret />@ to tell the plugin how to interact with MailChimp. Any other, regular fields will simply be passed to MailChimp as "merge tags":http://kb.mailchimp.com/merge-tags/all-the-merge-tags-cheatsheet.
+The way you set up the plugin is by writing a standard @<txp:com_connect>@ form, but with specific elements to configure and control the process. Use @<txp:com_connect_secret />@ to tell the plugin how to interact with MailChimp. Any other, regular fields will simply be passed to MailChimp as "merge tags":http://kb.mailchimp.com/merge-tags/all-the-merge-tags-cheatsheet.
 
 Here's a simple example, which collects an email address, first name, and last name for subscription purposes:
 
 bc. <p>Sign up for our newsletter!</p>
 <txp:variable name="chimpApiKey">abc123abc123abc123abc123abc123-us1</txp:variable>
-<txp:zem_contact to="not_important@example.org">
-   <txp:zem_contact_secret label="mailchimp_api_key" value='<txp:variable name="chimpApiKey" />' />
-   <txp:zem_contact_secret label="mailchimp_double_optin:b" value="false" />
-   <txp:zem_contact_secret label="list_id" value="mylist1234" />
-   <txp:zem_contact_email name="email" />
-   <txp:zem_contact_text name="FNAME" label="First name" />
-   <txp:zem_contact_text name="LNAME" label="Last name" />
-   <txp:zem_contact_submit label="Subscribe" />
-</txp:zem_contact>
+<txp:com_connect to="not_important@example.org">
+   <txp:com_connect_secret label="mailchimp_api_key" value='<txp:variable name="chimpApiKey" />' />
+   <txp:com_connect_secret label="mailchimp_double_optin:b" value="false" />
+   <txp:com_connect_secret label="list_id" value="mylist1234" />
+   <txp:com_connect_email name="email" />
+   <txp:com_connect_text name="FNAME" label="First name" />
+   <txp:com_connect_text name="LNAME" label="Last name" />
+   <txp:com_connect_submit label="Subscribe" />
+</txp:com_connect>
 
 Pretty simple. Any secret values that begin with @mailchimp_@ are treated as configuration parameters. These can be:
 
@@ -285,14 +289,14 @@ Other variables (without any prefix) are treated as regular parameters (strings)
 * *list_id* The subscription list ID of the list to which you wish people to be able to subscribe.
 * *email* The email address of the person who is subscribing.
 
-There are also zem_contact_reborn configuration parameters, which begin with @zcr_@. At the moment there's only one:
+There are also com_connect configuration parameters, which begin with @ext_@. At the moment there's only one:
 
 * *return_action* Determines what happens when the MailChimp process completes:
-** *skip* The default, which causes the regular ZCR mail process to be bypassed, while still returning the regular 'success' message.
-** *fail* Tell ZCR to return a failure code.
-** *success* To allow ZCR to continue sending an email to the recipient. Note that the recipient in this case is the @to@ attribute of the @<txp:zem_contact>@ tag (probably you!), not the person signing up.
+** *skip* The default, which causes the regular com_connect mail process to be bypassed, while still returning the regular 'success' message.
+** *fail* Tell com_connect to return a failure code.
+** *success* To allow com_connect to continue sending an email to the recipient. Note that the recipient in this case is the @to@ attribute of the @<txp:com_connect>@ tag (probably you!), not the person signing up.
 
-If you elect to use @copysender@ in ZCR, the signup request will still only be performed once, and ZCR will send out an email to the subscriber, irrespective of the setting of @return_action@.
+If you elect to use @copysender@ in com_connect, the signup request will still only be performed once, and com_connect will send out an email to the subscriber, irrespective of the setting of @return_action@.
 
 h2. Author / Credits
 
